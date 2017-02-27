@@ -1,3 +1,11 @@
+---
+title: "Als stemmen iets veranderde, dan was het waarschijnlijk al illegaal geworden"
+output:
+  html_document: default
+  html_notebook: default
+  pdf_document: default
+---
+```{r,echo=FALSE,warning=FALSE,message=FALSE,error=FALSE,cache=FALSE}
 library(httr)
 library(XML)
 library(rvest)
@@ -7,7 +15,45 @@ library(xlsx)
 library(ggplot2)
 library(reshape2)
 library(plotly)
-options("scipen"=100, "digits"=2)
+library(RColorBrewer)
+pal = "Dark2"
+
+
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  require(grid)
+
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+
+  numPlots = length(plots)
+
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                    ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+
+ if (numPlots==1) {
+    print(plots[[1]])
+
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
 
 ###########################
 # Local Elections: Part 1 #
@@ -173,7 +219,13 @@ getLocalNumbers <- function() {
 # Gewone gemiddeldes
 s <- getLocalNumbers()
 smelt <- melt.data.table(s,id.vars=c("municipality","year"),value.name="metrics")
+```
 
+Publifin, Publipart, Publilec. De politici die dachten hier publi-citeit uit te slaan kregen de boemerang in het gezicht. Het vertrouwen in de politici krijgt ongetwijfeld een deuk. En ze genoten reeds minder vertrouwen [dan bankiers, reclamemakers en priesters](http://www.kmo-insider.biz/nieuws/artikels/politici-zijn-minst-betrouwbaar). 
+
+Dat belooft voor de volgende gemeenteraadsverkiezingen in 2018. Want ondanks de opkomstplicht - nee, geen stemplicht - is het aantal mensen dat effectief aan de stembus verschijnt op de terugweg. Vergrijzing, migratie, digitaal stemmen: het zijn allemaal mogelijke verklaringen voor een dalende opkomst. Maar laten we vooral de 'foert'-stem niet vergeten: mensen die blanco stemmen of urenlang in dat stemhokje blijven staan om als politiek statement een gigantische piemel of andere onschunnigheden op hun stemblad te schetsen - "Meneer, waar kan ik mijn stempotlood slijpen?". Met de onthullingen van de laatste weken kunnen verwachten dat die trend zich zal verderzetten.
+
+```{r,echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
 # Gewogen gemiddeldes
 t <- s[,.(ingeschreven=sum(ingeschreven),neergelegd=sum(neergelegd),blanco_ongeldig=sum(blanco_ongeldig)),by=year]
 t <- t[order(year)]
@@ -187,55 +239,44 @@ t <- t[,.(year,
           opkomstdiff=c(NA,diff(opkomstratio)),
           blancodiff=c(NA,diff(blancoratio)))]
 tmelt <- melt.data.table(t,id.vars=c("year"),value.name="metrics")
-
-tplot <- ggplot(tmelt[variable %in% c("opkomstratio","blancoratio")],aes(as.factor(year),metrics,fill=variable)) + 
+tplot <- ggplot(tmelt[variable %in% c("opkomstratio","blancoratio")],aes(as.factor(year),metrics,fill=variable,label=round(metrics,2))) + 
     geom_bar(stat="identity") +
     ylim(0,15) + xlab("Verkiezing") + ylab("%") +
-    scale_fill_discrete(name="",
-                        labels=c("Thuisblijvers (%)", "Blancostemmers (%)"))
+    scale_fill_brewer(palette=pal,name="",labels=c("Thuisblijvers (%)", "Blancostemmers (%)")) +
+    ggtitle("Evolutie van thuisblijvers en blancostemmers in het Vlaams Gewest")
 
-# Gemeentes
-u <- s[,.(ingeschreven=mean(ingeschreven),neergelegd=mean(neergelegd),blanco_ongeldig=mean(blanco_ongeldig)),by=municipality]
-u <- u[order(municipality)]
-u <- u[,c("opkomstratio","blancoratio"):=list((1-neergelegd/ingeschreven)*100,blanco_ongeldig/ingeschreven*100)]
-u <- u[,.(municipality,
-          ingeschreven,
-          neergelegd,
-          blanco_ongeldig,
-          opkomstratio,
-          blancoratio,
-          opkomstdiff=c(NA,diff(opkomstratio)),
-          blancodiff=c(NA,diff(blancoratio)))]
+print(tplot)
+```
 
-uplot <- ggplot(u,aes(u$opkomstratio,u$blancoratio)) + geom_point()
+In 1988 was het percentage van mensen dat thuis bleef op kieszondag slecht **5%**. Dat percentage liep in 2012 al op tot **8.4%**. Het aantal blanco's en ongeldige stemmen gaat eerder achteruit. Maar als je ze samen optelt zien we een stijging van **9%** naar **11.7%**. Noem het gerust de 'foertratio', het aandeel van het volledige kiezerskorps dat ontgoocheld is in de democratie.
 
+Maar het wordt vooral uitkijken naar de stad Gent. Het was in de Arteveldestad dat de bom ontplofte en diverse politici in het oog van de storm kwamen te staan. Schepenen gingen, lijsttrekkers kwamen en kartels bleven bestaan. In Gent ligt de opkomst al traditioneel lager dan het Vlaamse gemiddelde. In 1988 bleef **7.4%** weg van de stembussen en in 2012 liep dat al op tot **9.7%**. Tel daar de blanco's en ongeldige stemmen bij en dan blijkt dat **13.4%** zijn of haar stem niet komt uitbrengen.
+
+```{r,echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
+gmelt <- melt.data.table(s[municipality=="Gent"],id.vars=c("municipality","year"),value.name="metrics")
+gplot <- ggplot(gmelt[variable %in% c("opkomstratio","blancoratio")],aes(as.factor(year),metrics,fill=variable)) + 
+    geom_bar(stat="identity") +
+    ylim(0,15) + xlab("Verkiezing") + ylab("%") +
+    scale_fill_brewer(palette=pal,name="",labels=c("Thuisblijvers (%)", "Blancostemmers (%)")) +
+    ggtitle("Evolutie van thuisblijvers en blancostemmers in Gent")
+print(gplot)
+```
+
+En het is niet alleen Gent waar de opkomst traditioneel lager ligt. Het is voornamelijk in de steden dat mensen wegblijven uit de stemlokalen. Er is een duidelijk verband tussen het aantal kiesgerechtigden in een gemeente en het aandeel van die kiesgerechtigden dat niet komt opdagen of blanco/ongeldig stemt, de 'foertratio'. 
+
+```{r,echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
 # 2012
 v <- s[year=="2012-10-14"]
 v <- v[order(-ingeschreven)]
 v <- v[,c("big","foertratio"):=list(ifelse(ingeschreven>quantile(ingeschreven,0.95),"Grote gemeente","Kleine gemeente"),blancoratio+opkomstratio)]
 
-v1plot <- ggplot(v,aes(opkomstratio,blancoratio,col=big)) + geom_point() + geom_smooth(method="lm")
-v2plot <- ggplot(v,aes(ingeschreven,foertratio)) + 
-    geom_point() + 
+vplot <- ggplot(v,aes(ingeschreven,foertratio)) + 
+    geom_point(aes(color="#1b9e77"),alpha=6/10) + 
     geom_smooth(method = 'nls', formula = 'y~a*x^b',se=FALSE) +
-    geom_smooth(method = 'lm',se=FALSE)
+    labs(x="Kiesgerechtigden",y="Foertratio")
 
 v1LM <- summary(lm(log(v$foertratio)~log(v$ingeschreven)))
-v2LM <- summary(lm(v$foertratio~v$ingeschreven))
+print(vplot)
+```
 
-# All years
-w <- s[ingeschreven<12000]
-w <- w[order(-ingeschreven)]
-w <- w[,c("foertratio"):=list(blancoratio+opkomstratio)]
-wplot <- ggplot(w,aes(ingeschreven,foertratio,col=as.factor(year))) + 
-    geom_point(alpha=4/10) + 
-    geom_smooth(method = 'nls', formula = 'y~a*x^b',se=FALSE) +
-    scale_color_brewer(palette="Dark2",name="Verkiezingsdatum")
-
-
-# Gent
-gmelt <- melt.data.table(s[municipality=="Gent"],id.vars=c("municipality","year"),value.name="metrics")
-gplot <- ggplot(gmelt[variable %in% c("opkomstratio","blancoratio")],aes(as.factor(year),metrics,fill=variable)) + 
-    geom_bar(stat="identity") +
-    ylim(0,15)
-
+In het gebruikte [log-log model](https://nl.wikipedia.org/wiki/Machtsfunctie) wordt voor de verkiezingen van 2012, 23% van de variatie in de foertratio verklaard door de het aantal kiesgerechtigden. Zoals je kan zien in bovenstaande grafiek groeit de foertratio sterk bij steden met tussen de 0 en 40.000 kiesgerechtigden en zwakt de stijging daarna af. 
