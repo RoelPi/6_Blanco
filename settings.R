@@ -1,0 +1,12 @@
+library(httr)
+library(XML)
+library(rvest)
+library(data.table)
+library(jsonlite)
+library(xlsx)
+library(ggplot2)
+library(reshape2)
+library(plotly)
+library(RColorBrewer)
+pal = "Dark2"
+options("scipen"=100, "digits"=2)
