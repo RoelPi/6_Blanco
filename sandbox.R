@@ -210,27 +210,34 @@ u <- u[,.(municipality,
 uplot <- ggplot(u,aes(u$opkomstratio,u$blancoratio)) + geom_point()
 
 # 2012
-v <- s[year=="2012-10-14"]
-v <- v[order(-ingeschreven)]
-v <- v[,c("big","foertratio"):=list(ifelse(ingeschreven>quantile(ingeschreven,0.95),"Grote gemeente","Kleine gemeente"),blancoratio+opkomstratio)]
-
-v1plot <- ggplot(v,aes(opkomstratio,blancoratio,col=big)) + geom_point() + geom_smooth(method="lm")
-v2plot <- ggplot(v,aes(ingeschreven,foertratio)) + 
+tempV <- c()
+for (i in 1:nrow(t)) {
+  v <- s[year==t[i]$year]
+  v <- v[order(-ingeschreven)]
+  v <- v[,c("big","foertratio"):=list(ifelse(ingeschreven>quantile(ingeschreven,0.95),"Grote gemeente","Kleine gemeente"),blancoratio+opkomstratio)]
+  
+  v1plot <- ggplot(v,aes(opkomstratio,blancoratio,col=big)) + geom_point() + geom_smooth(method="lm")
+  v2plot <- ggplot(v,aes(ingeschreven,foertratio)) + 
     geom_point() + 
     geom_smooth(method = 'nls', formula = 'y~a*x^b',se=FALSE) +
     geom_smooth(method = 'lm',se=FALSE)
-
-v1LM <- summary(lm(log(v$foertratio)~log(v$ingeschreven)))
-v2LM <- summary(lm(v$foertratio~v$ingeschreven))
+  
+  v1LM <- summary(lm(log(v$foertratio)~log(v$ingeschreven)))
+  v2LM <- summary(lm(v$foertratio~v$ingeschreven))
+  tempV[i] <- v1LM$r.squared
+}
+t$model <- tempV
 
 # All years
-w <- s[ingeschreven<12000]
+w <- s[ingeschreven > 12000 & year == '2012-10-04']
 w <- w[order(-ingeschreven)]
 w <- w[,c("foertratio"):=list(blancoratio+opkomstratio)]
 wplot <- ggplot(w,aes(ingeschreven,foertratio,col=as.factor(year))) + 
     geom_point(alpha=4/10) + 
     geom_smooth(method = 'nls', formula = 'y~a*x^b',se=FALSE) +
     scale_color_brewer(palette="Dark2",name="Verkiezingsdatum")
+
+w1LM <- summary(lm(log(w$foertratio)~log(w$ingeschreven)))
 
 
 # Gent

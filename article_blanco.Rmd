@@ -17,6 +17,7 @@ library(reshape2)
 library(plotly)
 library(RColorBrewer)
 pal = "Dark2"
+options("scipen"=100, "digits"=2)
 
 
 multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
@@ -266,17 +267,33 @@ En het is niet alleen Gent waar de opkomst traditioneel lager ligt. Het is voorn
 
 ```{r,echo=FALSE,warning=FALSE,message=FALSE,error=FALSE}
 # 2012
-v <- s[year=="2012-10-14"]
-v <- v[order(-ingeschreven)]
-v <- v[,c("big","foertratio"):=list(ifelse(ingeschreven>quantile(ingeschreven,0.95),"Grote gemeente","Kleine gemeente"),blancoratio+opkomstratio)]
+tempV <- c()
+v <- list()
+for (i in 1:nrow(t)) {
+  v[[i]] <- s[year==t[i]$year]
+  v[[i]] <- v[[i]][order(-ingeschreven)]
+  v[[i]] <- v[[i]][,c("big","foertratio"):=list(ifelse(ingeschreven>quantile(ingeschreven,0.95),"Grote gemeente","Kleine gemeente"),blancoratio+opkomstratio)]
+  
+  v1plot <- ggplot(v[[i]],aes(opkomstratio,blancoratio,col=big)) + geom_point() + geom_smooth(method="lm")
+  v2plot <- ggplot(v[[i]],aes(ingeschreven,foertratio)) + 
+    geom_point() + 
+    geom_smooth(method = 'nls', formula = 'y~a*x^b',se=FALSE) +
+    geom_smooth(method = 'lm',se=FALSE)
+  
+  v1LM <- summary(lm(log(v[[i]]$foertratio)~log(v[[i]]$ingeschreven)))
+  v2LM <- summary(lm(v[[i]]$foertratio~v[[i]]$ingeschreven))
+  tempV[i] <- v1LM$r.squared
+}
+t$model <- tempV
 
-vplot <- ggplot(v,aes(ingeschreven,foertratio)) + 
+vplot <- ggplot(v[[1]],aes(ingeschreven,foertratio)) + 
     geom_point(aes(color="#1b9e77"),alpha=6/10) + 
     geom_smooth(method = 'nls', formula = 'y~a*x^b',se=FALSE) +
     labs(x="Kiesgerechtigden",y="Foertratio")
 
-v1LM <- summary(lm(log(v$foertratio)~log(v$ingeschreven)))
 print(vplot)
 ```
 
-In het gebruikte [log-log model](https://nl.wikipedia.org/wiki/Machtsfunctie) wordt voor de verkiezingen van 2012, 23% van de variatie in de foertratio verklaard door de het aantal kiesgerechtigden. Zoals je kan zien in bovenstaande grafiek groeit de foertratio sterk bij steden met tussen de 0 en 40.000 kiesgerechtigden en zwakt de stijging daarna af. 
+In het gebruikte [log-log model](https://nl.wikipedia.org/wiki/Machtsfunctie) wordt voor de verkiezingen van 2012, `r t[1]$model`% van de variatie in de foertratio verklaard door de het aantal kiesgerechtigden. Zoals je kan zien in bovenstaande grafiek groeit de foertratio sterk bij steden met tussen de 0 en 40.000 kiesgerechtigden en zwakt de stijging daarna af. `r t[1]$model`%, dat is vrij veel. Maar dat wil zeggen dat de overige `r 1 - t[1]$model`% verklaard wordt door een heleboel andere factoren. Een uitbreiding van het model met andere factoren zoals inkomen, leeftijd en migratie zou voor interessante inzichten kunnen zorgen.
+
+Dit verband is voor elk (gemeenteraads)verkiezingsjaar aanwezig en significant. 
